@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useSession, signOut } from "next-auth/react";
 import {
 	Card,
 	CardContent,
@@ -13,39 +14,68 @@ import {
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import {
-	isAuthenticated,
 	getTotalScore,
 	getCompletedSectionsCount,
-	getUser,
 } from "@/lib/localStorage";
 import { APPRAISAL_SECTIONS } from "@/lib/constants";
-import { Award, BookOpen, Calendar, TrendingUp } from "lucide-react";
+import { Award, BookOpen, Calendar, TrendingUp, Loader2, LogOut } from "lucide-react";
+import { toast } from "sonner";
 
 export default function Dashboard() {
 	const router = useRouter();
-	const user = getUser();
+	const { data: session, status } = useSession();
 	const totalScore = getTotalScore();
 	const completedSections = getCompletedSectionsCount();
 	const totalSections = APPRAISAL_SECTIONS.length;
 	const progressPercentage = (completedSections / totalSections) * 100;
 
 	useEffect(() => {
-		if (!isAuthenticated()) {
+		if (status === "unauthenticated") {
 			router.push("/login");
 		}
-	}, [router]);
+	}, [status, router]);
+
+	// Show loading state while checking authentication
+	if (status === "loading") {
+		return (
+			<div className="min-h-screen flex items-center justify-center">
+				<Loader2 className="h-8 w-8 animate-spin text-primary" />
+			</div>
+		);
+	}
+
+	// If not authenticated, don't render anything (redirect will happen)
+	if (!session) {
+		return null;
+	}
+
+	const handleLogout = async () => {
+		await signOut({ redirect: false });
+		toast.success("Logged out successfully");
+		router.push("/login");
+	};
 
 	return (
 		<div className="min-h-screen bg-muted/30">
 			<div className="container mx-auto px-4 py-8 max-w-7xl">
-				{/* Welcome Header */}
-				<div className="mb-8">
-					<h1 className="text-3xl font-bold text-foreground mb-2">
-						Welcome back, {user?.name?.split(" ")[1] || "Faculty Member"}!
-					</h1>
-					<p className="text-muted-foreground">
-						Track and complete your annual performance appraisal
-					</p>
+				{/* Header with Logout Button */}
+				<div className="flex justify-between items-start mb-8">
+					<div>
+						<h1 className="text-3xl font-bold text-foreground mb-2">
+							Welcome back, {session.user?.name?.split(" ")[1] || session.user?.name || "Faculty Member"}!
+						</h1>
+						<p className="text-muted-foreground">
+							Track and complete your annual performance appraisal
+						</p>
+					</div>
+					<Button 
+						variant="outline" 
+						onClick={handleLogout}
+						className="gap-2"
+					>
+						<LogOut className="h-4 w-4" />
+						Logout
+					</Button>
 				</div>
 
 				{/* Stats Grid */}
