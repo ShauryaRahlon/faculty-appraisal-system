@@ -377,7 +377,7 @@ cd jiit-portal && npm install && npm run dev
 
 # 7. Login
 # Open browser → http://localhost:3000
-# Use employee code: JIIT1068, password: password123
+# Use employee code: JIIT1068, password: jiit123
 ```
 
 ---
