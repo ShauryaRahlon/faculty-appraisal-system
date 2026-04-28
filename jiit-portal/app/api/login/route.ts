@@ -38,7 +38,8 @@ export async function POST(req: Request) {
             return NextResponse.json({
                 verified: true,
                 message: "User is verified, proceed with login",
-                userId: user._id.toString()
+                userId: user._id.toString(),
+                role: user.role || "faculty"
             });
         }
 

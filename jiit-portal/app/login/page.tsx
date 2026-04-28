@@ -171,8 +171,8 @@ export default function Login() {
 						localStorage.setItem("user_id", loginData.userId);
 					}
 
-					// Hardcoded HOD redirect
-					if (identifier.trim().toUpperCase() === "JIIT1137") {
+					// Role-based redirect
+					if (loginData.role === "admin") {
 						router.push("/hod/dashboard");
 					} else {
 						router.push("/dashboard");
