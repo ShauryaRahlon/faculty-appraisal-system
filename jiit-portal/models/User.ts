@@ -11,6 +11,7 @@ const UserSchema = new mongoose.Schema({
   // Auth Fields
   email: { type: String, required: true, unique: true },        // Required for OTP
   password: { type: String, required: true },
+  role: { type: String, enum: ["faculty", "admin"], default: "faculty" },
   isVerified: { type: Boolean, default: false },                // False = first time login
   otp: { type: String },
   otpExpires: { type: Date },

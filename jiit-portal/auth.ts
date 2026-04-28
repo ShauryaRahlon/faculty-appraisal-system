@@ -38,6 +38,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     email: user.email,
                     department: user.department,
                     employeeCode: user.employeeCode,
+                    role: user.role || "faculty",
                     image: null
                 };
             },
@@ -49,6 +50,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             if (user) {
                 token.department = (user as any).department;
                 token.code = (user as any).employeeCode;
+                token.role = (user as any).role;
             }
             return token;
         },
@@ -56,6 +58,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             if (token && session.user) {
                 (session.user as any).department = token.department;
                 (session.user as any).employeeCode = token.code;
+                (session.user as any).role = token.role;
             }
             return session;
         },
