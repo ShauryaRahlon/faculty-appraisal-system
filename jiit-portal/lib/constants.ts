@@ -18,6 +18,7 @@ export const API_ENDPOINTS = {
   GET_ALL_FACULTY_DATA: `${API_BASE_URL}/api/get-all-faculty-data/`,
   SYNC_APPRAISAL_PROGRESS: `${API_BASE_URL}/api/sync-appraisal-progress/`,
   GET_APPRAISAL_PROGRESS: `${API_BASE_URL}/api/get-appraisal-progress/`,
+  UPDATE_APPRAISAL_STATUS: `${API_BASE_URL}/api/update-appraisal-status/`,
 } as const;
 
 export const APPRAISAL_SECTIONS = [
