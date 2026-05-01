@@ -171,11 +171,12 @@ export default function Login() {
 						localStorage.setItem("user_id", loginData.userId);
 					}
 
-					// Role-based redirect
+					// Role-based redirect — use window.location for a hard navigation
+					// so the browser sends the freshly-set session cookie
 					if (loginData.role === "admin") {
-						router.push("/hod/dashboard");
+						window.location.href = "/hod/dashboard";
 					} else {
-						router.push("/dashboard");
+						window.location.href = "/dashboard";
 					}
 				}
 			}
