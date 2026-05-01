@@ -8,7 +8,7 @@ const publicRoutes = ["/login", "/verify-otp", "/change-password"];
 // Routes that require admin role
 const adminRoutes = ["/hod"];
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
     const { pathname } = req.nextUrl;
 
     // Get the JWT token (does NOT require DB — works in Edge Runtime)
