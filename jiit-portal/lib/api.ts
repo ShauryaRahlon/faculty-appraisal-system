@@ -28,13 +28,13 @@ export const getAuthToken = (): string | null => {
 
 /**
  * Get user ID from localStorage or session
- * TODO: Replace with actual authentication context
+ * Returns empty string if not available — callers must check.
  */
 export const getUserId = (): string => {
   if (typeof window !== 'undefined') {
-    return localStorage.getItem('user_id') || 'default_user_id';
+    return localStorage.getItem('user_id') || '';
   }
-  return 'default_user_id';
+  return '';
 };
 
 /**
@@ -226,4 +226,47 @@ export function getBackendSectionKey(frontendSectionId: string): string {
 export async function getAllFacultyData(): Promise<unknown> {
     const result = await apiGet(API_ENDPOINTS.GET_ALL_FACULTY_DATA);
     return result;
+}
+
+/**
+ * Sync the full frontend AppraisalData blob to the server.
+ * This ensures progress persists across browsers/devices.
+ */
+export async function syncAppraisalProgress(data: unknown): Promise<void> {
+  const userId = getUserId();
+  if (!userId) {
+    console.warn('syncAppraisalProgress: No user_id, skipping sync');
+    return;
+  }
+  try {
+    await apiPost(API_ENDPOINTS.SYNC_APPRAISAL_PROGRESS, {
+      user_id: userId,
+      data,
+    });
+  } catch (error) {
+    // Fire-and-forget: don't break the UI if sync fails
+    console.error('Failed to sync appraisal progress to server:', error);
+  }
+}
+
+/**
+ * Load the saved frontend AppraisalData blob from the server.
+ * Returns null if no saved progress exists.
+ */
+export async function loadAppraisalProgress(userId?: string): Promise<unknown | null> {
+  const uid = userId || getUserId();
+  if (!uid) {
+    console.warn('loadAppraisalProgress: No user_id, skipping load');
+    return null;
+  }
+  try {
+    const response = await apiGet<{ message: string; result: unknown | null }>(
+      API_ENDPOINTS.GET_APPRAISAL_PROGRESS,
+      { user_id: uid }
+    );
+    return response?.result ?? null;
+  } catch (error) {
+    console.error('Failed to load appraisal progress from server:', error);
+    return null;
+  }
 }

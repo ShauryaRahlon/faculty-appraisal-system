@@ -237,3 +237,35 @@ async def get_all_faculty_data():
         return {"message": "Data fetched successfully", "result": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail="Error fetching faculty data")
+
+
+@router.post("/sync-appraisal-progress/")
+async def sync_appraisal_progress(data: Dict = Body(...)):
+    """Save the full frontend AppraisalData blob for cross-browser persistence."""
+    user_id = data.get("user_id")
+    if not user_id:
+        raise HTTPException(status_code=400, detail="User ID is required")
+
+    progress = data.get("data")
+    if progress is None:
+        raise HTTPException(status_code=400, detail="Progress data is required")
+
+    try:
+        await service.save_appraisal_progress(user_id, progress)
+        return {"message": "Progress synced successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Error syncing appraisal progress")
+
+
+@router.get("/get-appraisal-progress/")
+async def get_appraisal_progress(
+    user_id: str = Query(..., description="User ID"),
+):
+    """Retrieve the saved frontend AppraisalData blob for a user."""
+    try:
+        result = await service.get_appraisal_progress(user_id)
+        return {"message": "Progress fetched successfully", "result": result}
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail="Error fetching appraisal progress"
+        )

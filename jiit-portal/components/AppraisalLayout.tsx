@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { CheckCircle2, Circle, Clock, LogOut, Menu, X } from "lucide-react";
@@ -12,6 +12,7 @@ import {
 	isAuthenticated,
 } from "@/lib/localStorage";
 import { useSession, signOut } from "next-auth/react";
+import { useServerSync } from "@/hooks/useServerSync";
 import { AppraisalData, SectionStatus, ScoredItem } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
@@ -27,8 +28,12 @@ export default function AppraisalLayout({ children }: AppraisalLayoutProps) {
 	const [sidebarOpen, setSidebarOpen] = useState<boolean>(() =>
 		typeof window !== "undefined" ? window.innerWidth >= 768 : true
 	);
-	const [appraisalData, setAppraisalData] = useState(getAppraisalData());
+	const [appraisalData, setAppraisalDataState] = useState(getAppraisalData());
 	const { data: session, status } = useSession();
+
+	// Hydrate localStorage from MongoDB on mount (handles new browser/incognito)
+	useServerSync();
+
 	const user =
 		(session?.user as {
 			name?: string | null;
@@ -37,6 +42,17 @@ export default function AppraisalLayout({ children }: AppraisalLayoutProps) {
 			department?: string;
 			id?: string;
 		}) ?? getUser();
+
+	// Refresh sidebar data when localStorage is hydrated from server
+	const refreshData = useCallback(() => {
+		setAppraisalDataState(getAppraisalData());
+	}, []);
+
+	useEffect(() => {
+		// Listen for hydration events from useServerSync
+		window.addEventListener("appraisal-data-hydrated", refreshData);
+		return () => window.removeEventListener("appraisal-data-hydrated", refreshData);
+	}, [refreshData]);
 
 	useEffect(() => {
 		// Wait for NextAuth session to resolve. If no NextAuth session AND no localStorage auth, redirect to login
@@ -48,7 +64,7 @@ export default function AppraisalLayout({ children }: AppraisalLayoutProps) {
 		}
 
 		// Refresh appraisal data when location changes
-		setAppraisalData(getAppraisalData());
+		setAppraisalDataState(getAppraisalData());
 
 		// If on a small screen, close the sidebar when navigating between sections
 		if (typeof window !== "undefined" && window.innerWidth < 768) {
