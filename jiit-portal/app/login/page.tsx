@@ -156,31 +156,29 @@ export default function Login() {
 
 			// Step 3: User is verified, proceed with NextAuth sign in
 			if (loginData.verified) {
-				const res = await signIn("credentials", {
+				// Set localStorage BEFORE signIn redirect
+				if (loginData.userId) {
+					localStorage.setItem("user_id", loginData.userId);
+				}
+
+				const redirectTo = loginData.role === "admin" ? "/hod/dashboard" : "/dashboard";
+
+				// Let NextAuth handle the redirect so the session cookie is
+				// properly set server-side before the browser navigates.
+				await signIn("credentials", {
 					identifier,
 					password,
-					redirect: false,
+					redirectTo,
 				});
-
-				if (res?.error) {
-					toast.error("Authentication failed. Please try again.");
-				} else {
-					toast.success("Login successful!");
-
-					if (loginData.userId) {
-						localStorage.setItem("user_id", loginData.userId);
-					}
-
-					// Role-based redirect — use window.location for a hard navigation
-					// so the browser sends the freshly-set session cookie
-					if (loginData.role === "admin") {
-						window.location.href = "/hod/dashboard";
-					} else {
-						window.location.href = "/dashboard";
-					}
-				}
+				// signIn will redirect — code below this won't execute
+				return;
 			}
-		} catch (error) {
+		} catch (error: any) {
+			// NextAuth v5 throws a NEXT_REDIRECT error to perform the redirect —
+			// we must re-throw it so Next.js can handle the navigation.
+			if (error?.digest?.startsWith("NEXT_REDIRECT")) {
+				throw error;
+			}
 			console.error("Login error:", error);
 			toast.error("An unexpected error occurred. Please try again.");
 		} finally {
