@@ -270,3 +270,26 @@ export async function loadAppraisalProgress(userId?: string): Promise<unknown | 
     return null;
   }
 }
+
+/**
+ * Update the appraisal status by HOD/Admin.
+ */
+export async function updateAppraisalStatus(
+  userId: string,
+  status: string,
+  verifiedScore: number,
+  adminRemarks: string
+): Promise<void> {
+  try {
+    await apiPost(API_ENDPOINTS.UPDATE_APPRAISAL_STATUS, {
+      user_id: userId,
+      status: status,
+      verified_score: verifiedScore,
+      admin_remarks: adminRemarks,
+    });
+  } catch (error) {
+    console.error('Failed to update appraisal status:', error);
+    throw error;
+  }
+}
+

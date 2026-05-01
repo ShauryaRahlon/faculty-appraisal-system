@@ -81,7 +81,7 @@ DATA_INJECTION_COLLECTION_NAME=form_data_collection
 FACULTY_DATA_COLLECTION_NAME=faculty_data_collection
 ```
 
-> The FastAPI backend loads its `.env` from `../.env` relative to `fastapi-backend/app/`, which resolves to `django-backend/.env`. Both backends share the same env file.
+> The FastAPI backend has its own `.env` file at `fastapi-backend/.env`. It uses `pydantic-settings` to load these values and falls back to defaults if the file is missing. Both backends share the same env file.
 
 | Variable | Description | Default |
 |---|---|---|

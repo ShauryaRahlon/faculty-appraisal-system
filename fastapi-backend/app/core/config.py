@@ -3,13 +3,13 @@ from functools import lru_cache
 
 
 class Settings(BaseSettings):
-    MONGO_URI: str = "mongodb://localhost:27017/"
-    APPRAISAL_SYSTEM_MONGO_DB_NAME: str = "faculty_appraisal_db"
-    DATA_INJECTION_COLLECTION_NAME: str = "form_data_collection"
-    FACULTY_DATA_COLLECTION_NAME: str = "faculty_data_collection"
+    MONGO_URI: str
+    APPRAISAL_SYSTEM_MONGO_DB_NAME: str
+    DATA_INJECTION_COLLECTION_NAME: str
+    FACULTY_DATA_COLLECTION_NAME: str
 
     model_config = SettingsConfigDict(
-        env_file="../.env",  # Load from parent directory .env
+        env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
     )

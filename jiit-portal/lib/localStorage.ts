@@ -387,6 +387,7 @@ export const clearAuthToken = () => {
  */
 export const logout = () => {
   if (typeof window !== 'undefined') {
+    localStorage.removeItem(APPRAISAL_KEY);
     localStorage.removeItem(AUTH_KEY);
     localStorage.removeItem(USER_KEY);
     localStorage.removeItem(USER_ID_KEY);

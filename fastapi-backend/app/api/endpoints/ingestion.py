@@ -269,3 +269,21 @@ async def get_appraisal_progress(
         raise HTTPException(
             status_code=500, detail="Error fetching appraisal progress"
         )
+
+
+@router.post("/update-appraisal-status/")
+async def update_appraisal_status(data: Dict = Body(...)):
+    """Update the appraisal status, verified score, and admin remarks."""
+    user_id = data.get("user_id")
+    status_val = data.get("status")
+    verified_score = data.get("verified_score", 0)
+    admin_remarks = data.get("admin_remarks", "")
+
+    if not user_id or not status_val:
+        raise HTTPException(status_code=400, detail="User ID and status are required")
+
+    try:
+        await service.update_appraisal_status(user_id, status_val, verified_score, admin_remarks)
+        return {"message": "Appraisal status updated successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Error updating appraisal status")

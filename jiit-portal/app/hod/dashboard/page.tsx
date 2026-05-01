@@ -25,7 +25,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { signOut } from "next-auth/react";
-import { getAllFacultyData } from "@/lib/api";
+import { getAllFacultyData, updateAppraisalStatus } from "@/lib/api";
 
 // --- TYPES ---
 interface Faculty {
@@ -49,6 +49,8 @@ export default function HODDashboard() {
 	const [selectedFaculty, setSelectedFaculty] = useState<Faculty | null>(null);
 	const [reviewScore, setReviewScore] = useState(0);
 	const [reviewRemark, setReviewRemark] = useState("");
+	const [activeTab, setActiveTab] = useState<"Pending Review" | "Reviewed" | "Returned">("Pending Review");
+	const [isUpdating, setIsUpdating] = useState(false);
 
 	// Fetch data on mount
 	useEffect(() => {
@@ -127,7 +129,7 @@ export default function HODDashboard() {
 						totalScore = calculatedScore;
 
 						// Determine status based on some logic, defaulting to "Submitted" if data exists
-						const status = "Pending Review"; // logic can be enhanced
+						const status = userDoc.admin_status || "Pending Review";
 
 						processedList.push({
 							id: userId,
@@ -153,9 +155,11 @@ export default function HODDashboard() {
 	}, []);
 
 	// --- COMPUTED VALUES ---
-	const filteredFaculty = facultyList.filter((f) =>
-		f.name.toLowerCase().includes(searchQuery.toLowerCase())
-	);
+	const filteredFaculty = facultyList.filter((f) => {
+		const matchesSearch = f.name.toLowerCase().includes(searchQuery.toLowerCase());
+		const matchesTab = f.status === activeTab;
+		return matchesSearch && matchesTab;
+	});
 
 	const stats = useMemo(() => {
 		const total = facultyList.length;
@@ -192,25 +196,43 @@ export default function HODDashboard() {
 		setReviewRemark("");
 	};
 
-	const handleApprove = () => {
+	const handleApprove = async () => {
 		if (!selectedFaculty) return;
-		const updatedList = facultyList.map((f) => {
-			if (f.id === selectedFaculty.id)
-				return { ...f, status: "Reviewed", score: reviewScore };
-			return f;
-		});
-		setFacultyList(updatedList);
-		setSelectedFaculty(null);
+		setIsUpdating(true);
+		try {
+			await updateAppraisalStatus(selectedFaculty.id, "Reviewed", reviewScore, reviewRemark);
+			const updatedList = facultyList.map((f) => {
+				if (f.id === selectedFaculty.id)
+					return { ...f, status: "Reviewed", score: reviewScore };
+				return f;
+			});
+			setFacultyList(updatedList);
+			setSelectedFaculty(null);
+		} catch (error) {
+			console.error("Failed to approve:", error);
+			alert("Failed to update status. Please try again.");
+		} finally {
+			setIsUpdating(false);
+		}
 	};
 
-	const handleSendBack = () => {
+	const handleSendBack = async () => {
 		if (!selectedFaculty) return;
-		const updatedList = facultyList.map((f) => {
-			if (f.id === selectedFaculty.id) return { ...f, status: "Returned" };
-			return f;
-		});
-		setFacultyList(updatedList);
-		setSelectedFaculty(null);
+		setIsUpdating(true);
+		try {
+			await updateAppraisalStatus(selectedFaculty.id, "Returned", reviewScore, reviewRemark);
+			const updatedList = facultyList.map((f) => {
+				if (f.id === selectedFaculty.id) return { ...f, status: "Returned" };
+				return f;
+			});
+			setFacultyList(updatedList);
+			setSelectedFaculty(null);
+		} catch (error) {
+			console.error("Failed to send back:", error);
+			alert("Failed to update status. Please try again.");
+		} finally {
+			setIsUpdating(false);
+		}
 	};
 
 	const getStatusColor = (status: string) => {
@@ -463,16 +485,17 @@ export default function HODDashboard() {
 										<Button
 											className="w-full bg-green-600 hover:bg-green-700"
 											onClick={handleApprove}
+											disabled={isUpdating}
 										>
-											<CheckCircle2 className="mr-2 h-4 w-4" /> Approve
-											Appraisal
+											<CheckCircle2 className="mr-2 h-4 w-4" /> {isUpdating ? "Processing..." : "Approve Appraisal"}
 										</Button>
 										<Button
 											variant="outline"
 											className="w-full text-red-600 hover:bg-red-50 hover:text-red-700"
 											onClick={handleSendBack}
+											disabled={isUpdating}
 										>
-											<XCircle className="mr-2 h-4 w-4" /> Send Back
+											<XCircle className="mr-2 h-4 w-4" /> {isUpdating ? "Processing..." : "Send Back"}
 										</Button>
 									</div>
 								</CardContent>
@@ -606,14 +629,43 @@ export default function HODDashboard() {
 											Manage and review submitted forms
 										</CardDescription>
 									</div>
-									<div className="relative w-full md:w-64">
-										<Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-										<input
-											placeholder="Search name..."
-											className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 pl-8 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-											value={searchQuery}
-											onChange={(e) => setSearchQuery(e.target.value)}
-										/>
+									<div className="flex flex-col sm:flex-row items-center gap-4">
+										{/* Tabs */}
+										<div className="flex bg-muted p-1 rounded-md">
+											<Button
+												variant={activeTab === "Pending Review" ? "default" : "ghost"}
+												size="sm"
+												className="rounded-sm"
+												onClick={() => setActiveTab("Pending Review")}
+											>
+												Pending
+											</Button>
+											<Button
+												variant={activeTab === "Reviewed" ? "default" : "ghost"}
+												size="sm"
+												className="rounded-sm"
+												onClick={() => setActiveTab("Reviewed")}
+											>
+												Approved
+											</Button>
+											<Button
+												variant={activeTab === "Returned" ? "default" : "ghost"}
+												size="sm"
+												className="rounded-sm"
+												onClick={() => setActiveTab("Returned")}
+											>
+												Sent Back
+											</Button>
+										</div>
+										<div className="relative w-full sm:w-64">
+											<Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+											<input
+												placeholder="Search name..."
+												className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 pl-8 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+												value={searchQuery}
+												onChange={(e) => setSearchQuery(e.target.value)}
+											/>
+										</div>
 									</div>
 								</div>
 							</CardHeader>

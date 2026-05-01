@@ -345,3 +345,21 @@ class DataIngestionService:
         except Exception as e:
             logger.error(f"Error getting appraisal progress: {e}")
             raise e
+
+    async def update_appraisal_status(self, user_id: str, status: str, verified_score: int, admin_remarks: str):
+        try:
+            filter_dict = {"user_id": user_id}
+            update = {
+                "$set": {
+                    "admin_status": status,
+                    "verified_score": verified_score,
+                    "admin_remarks": admin_remarks
+                }
+            }
+            await mongo_client.update_one(
+                self.collection_name, filter_dict, update, upsert=True
+            )
+            return {"message": "Status updated successfully"}
+        except Exception as e:
+            logger.error(f"Error updating appraisal status: {e}")
+            raise e
