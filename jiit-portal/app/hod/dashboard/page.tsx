@@ -73,12 +73,58 @@ export default function HODDashboard() {
 
 						// Calculate total score from all sections
 						let totalScore = 0;
-						// Iterate keys to find sections with "score"
+						
+						// 1. Calculate from backend root keys if they exist (ignoring metadata keys)
+						const backendKeysToIgnore = ["user_id", "hod_review", "frontend_progress", "1-10", "_id"];
 						Object.keys(userDoc).forEach((key) => {
-							if (userDoc[key]?.score) {
+							if (!backendKeysToIgnore.includes(key) && userDoc[key]?.score !== undefined) {
 								totalScore += Number(userDoc[key].score) || 0;
 							}
 						});
+
+						// 2. Add any scores from frontend_progress that might not be in root keys yet
+						// (Especially generalDetails which is 10 points and doesn't save to a root .score)
+						if (userDoc.frontend_progress) {
+							Object.keys(userDoc.frontend_progress).forEach((fpKey) => {
+								if (fpKey !== "sectionStatus") {
+									const fpSection = userDoc.frontend_progress[fpKey];
+									if (fpSection && typeof fpSection === "object" && typeof fpSection.apiScore === "number") {
+										// Avoid double counting if backend already processed it
+										// Backend keys are usually numbers (11, 12.1), frontend keys are camelCase
+										// But since 'generalDetails' doesn't have a backend score key, we definitely add it.
+										// To be safe and show exactly what frontend shows, we can just use frontend_progress scores 
+										// for sections that haven't been finalized in backend root.
+										// Actually, if we just want to match the frontend view, sum all frontend apiScores!
+									}
+								}
+							});
+						}
+						
+						// Re-evaluate: To match what the user sees on their dashboard, we should just
+						// calculate the score exactly like `getTotalScore` in `lib/localStorage.ts`
+						let calculatedScore = 0;
+						if (userDoc.frontend_progress) {
+							Object.keys(userDoc.frontend_progress).forEach((key) => {
+								if (key !== "sectionStatus") {
+									const section = userDoc.frontend_progress[key];
+									if (section && typeof section === "object" && "apiScore" in section) {
+										calculatedScore += Number(section.apiScore) || 0;
+									}
+								}
+							});
+						} else {
+							// Fallback to backend keys
+							Object.keys(userDoc).forEach((key) => {
+								if (!backendKeysToIgnore.includes(key) && userDoc[key]?.score !== undefined) {
+									calculatedScore += Number(userDoc[key].score) || 0;
+								}
+							});
+							if (userDoc["1-10"]) {
+								calculatedScore += 10; // Default score for general details if present
+							}
+						}
+
+						totalScore = calculatedScore;
 
 						// Determine status based on some logic, defaulting to "Submitted" if data exists
 						const status = "Pending Review"; // logic can be enhanced
@@ -323,10 +369,13 @@ export default function HODDashboard() {
 											</span>
 										</p>
 										<div className="text-sm space-y-2">
-											{/* Minimal render of raw data for verification */}
+											{/* Render raw data scores to verify claims */}
 											{Object.keys(selectedFaculty.rawData).map((key) => {
-												if (key === "1-10") return null;
+												const keysToIgnore = ["1-10", "user_id", "hod_review", "frontend_progress", "_id"];
+												if (keysToIgnore.includes(key)) return null;
 												const sectionData = selectedFaculty.rawData[key];
+												if (!sectionData || typeof sectionData !== "object") return null;
+												
 												return (
 													<div
 														key={key}
@@ -336,11 +385,46 @@ export default function HODDashboard() {
 															Item {key}
 														</span>
 														<div className="text-xs truncate max-w-full text-foreground/80">
-															Score: {sectionData?.score || 0}
+															Score: {sectionData.score || 0}
 														</div>
 													</div>
 												);
 											})}
+
+											{/* Render frontend_progress scores for sections like generalDetails */}
+											{selectedFaculty.rawData.frontend_progress && 
+												Object.keys(selectedFaculty.rawData.frontend_progress).map((fpKey) => {
+													if (fpKey === "sectionStatus") return null;
+													const fpSection = selectedFaculty.rawData.frontend_progress[fpKey];
+													if (!fpSection || typeof fpSection !== "object" || !("apiScore" in fpSection)) return null;
+													
+													return (
+														<div
+															key={`fp-${fpKey}`}
+															className="border-l-2 border-primary/20 pl-3 py-1 bg-muted/20"
+														>
+															<span className="font-medium text-xs uppercase text-muted-foreground">
+																{fpKey.replace(/([A-Z])/g, ' $1').trim()} (Frontend)
+															</span>
+															<div className="text-xs truncate max-w-full text-foreground/80">
+																Score: {fpSection.apiScore || 0}
+															</div>
+														</div>
+													);
+												})
+											}
+											
+											{/* Fallback for general details if frontend_progress is missing but 1-10 exists */}
+											{!selectedFaculty.rawData.frontend_progress && selectedFaculty.rawData["1-10"] && (
+												<div className="border-l-2 border-primary/20 pl-3 py-1 bg-muted/20">
+													<span className="font-medium text-xs uppercase text-muted-foreground">
+														General Details (Fallback)
+													</span>
+													<div className="text-xs truncate max-w-full text-foreground/80">
+														Score: 10
+													</div>
+												</div>
+											)}
 										</div>
 									</div>
 								</CardContent>
