@@ -1,5 +1,5 @@
 import { AppraisalData, ScoredItem, UserProfile, SectionStatus } from './types';
-import { APPRAISAL_SECTIONS, AppraisalSectionId } from './constants';
+import { APPRAISAL_SECTIONS, AppraisalSectionId, API_BASE_URL } from './constants';
 
 const APPRAISAL_KEY = 'jiit_faculty_appraisal_data';
 const USER_KEY = 'jiit_faculty_user';
@@ -37,9 +37,69 @@ export const getAppraisalData = (): AppraisalData => {
   return data ? (JSON.parse(data) as AppraisalData) : { sectionStatus: {} };
 };
 
+// ==================== Server Sync ====================
+
+let _syncTimer: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * Debounced sync of the full AppraisalData blob to the server.
+ * Called automatically after every setAppraisalData().
+ * Fire-and-forget: never blocks the UI.
+ */
+const _debouncedSyncToServer = () => {
+  if (typeof window === 'undefined') return;
+  if (_syncTimer) clearTimeout(_syncTimer);
+  _syncTimer = setTimeout(async () => {
+    const userId = localStorage.getItem(USER_ID_KEY);
+    if (!userId) return;
+    const data = getAppraisalData();
+    try {
+      await fetch(`${API_BASE_URL}/api/sync-appraisal-progress/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, data }),
+      });
+    } catch (e) {
+      console.error('Auto-sync to server failed:', e);
+    }
+  }, 1500); // 1.5s debounce
+};
+
 export const setAppraisalData = (data: AppraisalData) => {
   if (typeof window !== 'undefined') {
     localStorage.setItem(APPRAISAL_KEY, JSON.stringify(data));
+    _debouncedSyncToServer();
+  }
+};
+
+/**
+ * Load saved appraisal progress from the server and hydrate localStorage.
+ * Call this on login / initial page mount to restore cross-browser progress.
+ * Returns true if server data was found and loaded.
+ */
+export const hydrateFromServer = async (): Promise<boolean> => {
+  if (typeof window === 'undefined') return false;
+  const userId = localStorage.getItem(USER_ID_KEY);
+  if (!userId) return false;
+
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/api/get-appraisal-progress/?user_id=${encodeURIComponent(userId)}`
+    );
+    if (!response.ok) return false;
+    const json = await response.json();
+    const serverData = json?.result;
+    if (serverData && typeof serverData === 'object' && serverData.sectionStatus) {
+      // Force overwrite local data with server data.
+      // This guarantees that if they filled it on Browser A, Browser B will ALWAYS get it when they log in.
+      setAppraisalData(serverData as AppraisalData);
+      console.log('Hydrated appraisal data from server');
+      return true;
+    }
+    return false;
+  } catch (e) {
+    console.error('Failed to hydrate from server:', e);
+    return false;
   }
 };
 

@@ -16,6 +16,8 @@ export const API_ENDPOINTS = {
   INJEST_ITEM_18: `${API_BASE_URL}/api/injest-item-18/`,
   INJEST_ITEM_19: `${API_BASE_URL}/api/injest-item-19/`,
   GET_ALL_FACULTY_DATA: `${API_BASE_URL}/api/get-all-faculty-data/`,
+  SYNC_APPRAISAL_PROGRESS: `${API_BASE_URL}/api/sync-appraisal-progress/`,
+  GET_APPRAISAL_PROGRESS: `${API_BASE_URL}/api/get-appraisal-progress/`,
 } as const;
 
 export const APPRAISAL_SECTIONS = [

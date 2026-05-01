@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
@@ -16,6 +16,7 @@ import { Progress } from "@/components/ui/progress";
 import {
 	getTotalScore,
 	getCompletedSectionsCount,
+	hydrateFromServer,
 } from "@/lib/localStorage";
 import { APPRAISAL_SECTIONS } from "@/lib/constants";
 import { Award, BookOpen, Calendar, TrendingUp, Loader2, LogOut } from "lucide-react";
@@ -24,14 +25,23 @@ import { toast } from "sonner";
 export default function Dashboard() {
 	const router = useRouter();
 	const { data: session, status } = useSession();
-	const totalScore = getTotalScore();
-	const completedSections = getCompletedSectionsCount();
+	const [totalScore, setTotalScore] = useState(getTotalScore());
+	const [completedSections, setCompletedSections] = useState(getCompletedSectionsCount());
 	const totalSections = APPRAISAL_SECTIONS.length;
 	const progressPercentage = (completedSections / totalSections) * 100;
 
 	useEffect(() => {
 		if (status === "unauthenticated") {
 			router.push("/login");
+			return;
+		}
+
+		// Hydrate from server if localStorage is empty (new browser/incognito)
+		if (status === "authenticated") {
+			hydrateFromServer().then(() => {
+				setTotalScore(getTotalScore());
+				setCompletedSections(getCompletedSectionsCount());
+			});
 		}
 	}, [status, router]);
 

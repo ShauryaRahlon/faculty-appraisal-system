@@ -247,7 +247,7 @@ class DataIngestionService:
         result_data = {
             "17": {
                 "data": data,
-                "total_score": total_score,
+                "score": total_score,
                 "api_score_list": api_score_list,
             }
         }
@@ -268,7 +268,7 @@ class DataIngestionService:
         result_data = {
             "18": {
                 "data": data,
-                "total_score": total_score,
+                "score": total_score,
                 "api_score_list": api_score_list,
             }
         }
@@ -296,7 +296,7 @@ class DataIngestionService:
         result_data = {
             "19": {
                 "data": data,
-                "total_score": total_score,
+                "score": total_score,
                 "api_score_dict": api_score_dict,
             }
         }
@@ -310,4 +310,38 @@ class DataIngestionService:
             )
         except Exception as e:
             logger.error(f"Error fetching all faculty data: {e}")
+            raise e
+
+    # ==================== Frontend Progress Sync ====================
+
+    async def save_appraisal_progress(self, user_id: str, progress_data: Dict):
+        """
+        Save the full frontend AppraisalData blob so progress persists
+        across browsers/devices.
+        """
+        try:
+            filter_dict = {"user_id": user_id}
+            update = {"$set": {"frontend_progress": progress_data}}
+            await mongo_client.update_one(
+                self.collection_name, filter_dict, update, upsert=True
+            )
+        except Exception as e:
+            logger.error(f"Error saving appraisal progress: {e}")
+            raise e
+
+    async def get_appraisal_progress(self, user_id: str):
+        """
+        Retrieve the saved frontend AppraisalData blob for a user.
+        """
+        try:
+            result = await mongo_client.find_one(
+                self.collection_name,
+                {"user_id": user_id},
+                {"_id": 0, "frontend_progress": 1},
+            )
+            if result and "frontend_progress" in result:
+                return result["frontend_progress"]
+            return None
+        except Exception as e:
+            logger.error(f"Error getting appraisal progress: {e}")
             raise e
