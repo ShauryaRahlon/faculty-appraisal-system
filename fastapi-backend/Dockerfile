@@ -5,11 +5,11 @@ FROM python:3.12-slim
 WORKDIR /app
 
 # Install dependencies first (for better caching)
-COPY requirements.txt .
+COPY fastapi-backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the rest of the application code
-COPY . .
+COPY fastapi-backend/ .
 
 # Expose the port FastAPI runs on
 EXPOSE 8000
