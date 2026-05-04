@@ -12,8 +12,16 @@ import {
 	Clock,
 	BarChart3,
 	FileCheck,
+	KeyRound,
+	X,
+	UserPlus,
+	UserMinus,
+	Loader2,
+	Settings,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import Image from "next/image";
 import {
 	Card,
@@ -26,6 +34,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { signOut } from "next-auth/react";
 import { getAllFacultyData, updateAppraisalStatus } from "@/lib/api";
+import { toast } from "sonner";
 
 // --- TYPES ---
 interface Faculty {
@@ -41,6 +50,18 @@ interface Faculty {
 	rawData: Record<string, any>;
 }
 
+interface ManagedFaculty {
+	id: string;
+	employeeCode: string;
+	name: string;
+	email: string;
+	department: string;
+	designation: string;
+	unit: string;
+	isVerified: boolean;
+	createdAt: string;
+}
+
 export default function HODDashboard() {
 	// --- STATE MANAGEMENT ---
 	const [facultyList, setFacultyList] = useState<Faculty[]>([]);
@@ -51,6 +72,33 @@ export default function HODDashboard() {
 	const [reviewRemark, setReviewRemark] = useState("");
 	const [activeTab, setActiveTab] = useState<"Pending Review" | "Reviewed" | "Returned">("Pending Review");
 	const [isUpdating, setIsUpdating] = useState(false);
+
+	// Change Password state
+	const [showChangePassword, setShowChangePassword] = useState(false);
+	const [currentPassword, setCurrentPassword] = useState("");
+	const [newPassword, setNewPassword] = useState("");
+	const [confirmNewPassword, setConfirmNewPassword] = useState("");
+	const [isChangingPassword, setIsChangingPassword] = useState(false);
+
+	// Faculty Management state
+	const [showManageFaculty, setShowManageFaculty] = useState(false);
+	const [managedFacultyList, setManagedFacultyList] = useState<ManagedFaculty[]>([]);
+	const [isFetchingFaculty, setIsFetchingFaculty] = useState(false);
+	const [manageFacultySearch, setManageFacultySearch] = useState("");
+	// Onboard form state
+	const [showOnboardForm, setShowOnboardForm] = useState(false);
+	const [onboardData, setOnboardData] = useState({
+		employeeCode: "",
+		name: "",
+		email: "",
+		department: "COMPUTER SCIENCE/ INFO. TECH.",
+		designation: "",
+		unit: "JIIT Noida Sec-62",
+	});
+	const [isOnboarding, setIsOnboarding] = useState(false);
+	// Remove confirmation
+	const [removingCode, setRemovingCode] = useState<string | null>(null);
+	const [isRemoving, setIsRemoving] = useState(false);
 
 	// Fetch data on mount
 	useEffect(() => {
@@ -237,6 +285,127 @@ export default function HODDashboard() {
 			setIsUpdating(false);
 		}
 	};
+
+	// --- CHANGE PASSWORD ---
+	const handleChangePassword = async (e: React.FormEvent) => {
+		e.preventDefault();
+		if (newPassword !== confirmNewPassword) {
+			toast.error("New passwords do not match");
+			return;
+		}
+		if (newPassword.length < 6) {
+			toast.error("Password must be at least 6 characters");
+			return;
+		}
+		setIsChangingPassword(true);
+		try {
+			const res = await fetch("/api/admin/change-password", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ currentPassword, newPassword }),
+			});
+			const data = await res.json();
+			if (res.ok) {
+				toast.success("Password changed successfully!");
+				setShowChangePassword(false);
+				setCurrentPassword("");
+				setNewPassword("");
+				setConfirmNewPassword("");
+			} else {
+				toast.error(data.error || "Failed to change password");
+			}
+		} catch {
+			toast.error("Network error occurred");
+		} finally {
+			setIsChangingPassword(false);
+		}
+	};
+
+	// --- FACULTY MANAGEMENT ---
+	const fetchManagedFacultyList = async () => {
+		setIsFetchingFaculty(true);
+		try {
+			const res = await fetch("/api/admin/faculty/list");
+			const data = await res.json();
+			if (res.ok) {
+				setManagedFacultyList(data.faculty);
+			} else {
+				toast.error(data.error || "Failed to fetch faculty list");
+			}
+		} catch {
+			toast.error("Network error occurred");
+		} finally {
+			setIsFetchingFaculty(false);
+		}
+	};
+
+	const handleOpenManageFaculty = () => {
+		setShowManageFaculty(true);
+		fetchManagedFacultyList();
+	};
+
+	const handleOnboardFaculty = async (e: React.FormEvent) => {
+		e.preventDefault();
+		setIsOnboarding(true);
+		try {
+			const res = await fetch("/api/admin/faculty/onboard", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(onboardData),
+			});
+			const data = await res.json();
+			if (res.ok) {
+				toast.success(data.message);
+				setShowOnboardForm(false);
+				setOnboardData({
+					employeeCode: "",
+					name: "",
+					email: "",
+					department: "COMPUTER SCIENCE/ INFO. TECH.",
+					designation: "",
+					unit: "JIIT Noida Sec-62",
+				});
+				fetchManagedFacultyList();
+			} else {
+				toast.error(data.error || "Failed to onboard faculty");
+			}
+		} catch {
+			toast.error("Network error occurred");
+		} finally {
+			setIsOnboarding(false);
+		}
+	};
+
+	const handleRemoveFaculty = async (employeeCode: string) => {
+		setIsRemoving(true);
+		try {
+			const res = await fetch("/api/admin/faculty/remove", {
+				method: "DELETE",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ employeeCode }),
+			});
+			const data = await res.json();
+			if (res.ok) {
+				toast.success(data.message);
+				setRemovingCode(null);
+				fetchManagedFacultyList();
+			} else {
+				toast.error(data.error || "Failed to remove faculty");
+			}
+		} catch {
+			toast.error("Network error occurred");
+		} finally {
+			setIsRemoving(false);
+		}
+	};
+
+	const filteredManagedFaculty = managedFacultyList.filter(
+		(f) =>
+			f.name.toLowerCase().includes(manageFacultySearch.toLowerCase()) ||
+			f.employeeCode.toLowerCase().includes(manageFacultySearch.toLowerCase()) ||
+			f.email.toLowerCase().includes(manageFacultySearch.toLowerCase())
+	);
+
 
 	const getStatusColor = (status: string) => {
 		switch (status) {
@@ -524,23 +693,337 @@ export default function HODDashboard() {
 							Overview of faculty performance appraisals
 						</p>
 					</div>
-					<div className="flex items-center gap-2">
+					<div className="flex items-center gap-2 flex-wrap">
 						<Button
-							variant="ghost"
-							onClick={() => signOut({ callbackUrl: "/login" })}
-							className="hidden md:inline-flex"
+							variant="outline"
+							onClick={() => setShowChangePassword(true)}
+							className="gap-2"
 						>
-							Logout
+							<KeyRound className="h-4 w-4" />
+							<span className="hidden sm:inline">Change Password</span>
+						</Button>
+						<Button
+							variant="outline"
+							onClick={handleOpenManageFaculty}
+							className="gap-2"
+						>
+							<Settings className="h-4 w-4" />
+							<span className="hidden sm:inline">Manage Faculty</span>
 						</Button>
 						<Button
 							variant="outline"
 							onClick={handleDownloadReport}
-							className="w-full md:w-auto"
+							className="gap-2"
 						>
-							<Download className="mr-2 h-4 w-4" /> Download Report
+							<Download className="h-4 w-4" />
+							<span className="hidden sm:inline">Download Report</span>
+						</Button>
+						<Button
+							variant="ghost"
+							onClick={() => signOut({ callbackUrl: "/login" })}
+						>
+							Logout
 						</Button>
 					</div>
 				</div>
+
+				{/* Change Password Modal */}
+				{showChangePassword && (
+					<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+						<Card className="w-full max-w-md shadow-2xl">
+							<CardHeader className="relative">
+								<Button
+									variant="ghost"
+									size="sm"
+									className="absolute right-4 top-4"
+									onClick={() => {
+										setShowChangePassword(false);
+										setCurrentPassword("");
+										setNewPassword("");
+										setConfirmNewPassword("");
+									}}
+								>
+									<X className="h-4 w-4" />
+								</Button>
+								<CardTitle className="flex items-center gap-2">
+									<KeyRound className="h-5 w-5 text-primary" />
+									Change Admin Password
+								</CardTitle>
+								<CardDescription>
+									Enter your current password and choose a new one
+								</CardDescription>
+							</CardHeader>
+							<CardContent>
+								<form onSubmit={handleChangePassword} className="space-y-4">
+									<div className="space-y-2">
+										<Label htmlFor="admin-current-password">Current Password</Label>
+										<Input
+											id="admin-current-password"
+											type="password"
+											placeholder="Enter current password"
+											value={currentPassword}
+											onChange={(e) => setCurrentPassword(e.target.value)}
+											required
+										/>
+									</div>
+									<div className="space-y-2">
+										<Label htmlFor="admin-new-password">New Password</Label>
+										<Input
+											id="admin-new-password"
+											type="password"
+											placeholder="At least 6 characters"
+											value={newPassword}
+											onChange={(e) => setNewPassword(e.target.value)}
+											required
+										/>
+									</div>
+									<div className="space-y-2">
+										<Label htmlFor="admin-confirm-password">Confirm New Password</Label>
+										<Input
+											id="admin-confirm-password"
+											type="password"
+											placeholder="Re-enter new password"
+											value={confirmNewPassword}
+											onChange={(e) => setConfirmNewPassword(e.target.value)}
+											required
+										/>
+									</div>
+									<div className="flex gap-3 pt-2">
+										<Button
+											type="button"
+											variant="outline"
+											className="flex-1"
+											onClick={() => {
+												setShowChangePassword(false);
+												setCurrentPassword("");
+												setNewPassword("");
+												setConfirmNewPassword("");
+											}}
+										>
+											Cancel
+										</Button>
+										<Button type="submit" className="flex-1" disabled={isChangingPassword}>
+											{isChangingPassword ? (
+												<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Updating...</>
+											) : "Update Password"}
+										</Button>
+									</div>
+								</form>
+							</CardContent>
+						</Card>
+					</div>
+				)}
+
+				{/* Manage Faculty Modal */}
+				{showManageFaculty && (
+					<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+						<Card className="w-full max-w-4xl shadow-2xl max-h-[90vh] flex flex-col">
+							<CardHeader className="relative flex-shrink-0">
+								<Button
+									variant="ghost"
+									size="sm"
+									className="absolute right-4 top-4"
+									onClick={() => {
+										setShowManageFaculty(false);
+										setShowOnboardForm(false);
+										setRemovingCode(null);
+									}}
+								>
+									<X className="h-4 w-4" />
+								</Button>
+								<CardTitle className="flex items-center gap-2">
+									<Users className="h-5 w-5 text-primary" />
+									Manage Faculty
+								</CardTitle>
+								<CardDescription>
+									Onboard new faculty or remove existing members ({managedFacultyList.length} total)
+								</CardDescription>
+							</CardHeader>
+							<CardContent className="flex-1 overflow-hidden flex flex-col">
+								{/* Actions Bar */}
+								<div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-4">
+									<Button
+										onClick={() => setShowOnboardForm(!showOnboardForm)}
+										className="gap-2"
+										variant={showOnboardForm ? "secondary" : "default"}
+									>
+										<UserPlus className="h-4 w-4" />
+										{showOnboardForm ? "Cancel Onboarding" : "Onboard New Faculty"}
+									</Button>
+									<div className="relative flex-1 w-full">
+										<Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+										<Input
+											placeholder="Search by name, code, or email..."
+											value={manageFacultySearch}
+											onChange={(e) => setManageFacultySearch(e.target.value)}
+											className="pl-8"
+										/>
+									</div>
+								</div>
+
+								{/* Onboard Form */}
+								{showOnboardForm && (
+									<Card className="mb-4 border-primary/30 bg-primary/5">
+										<CardContent className="pt-4">
+											<form onSubmit={handleOnboardFaculty} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+												<div className="space-y-1">
+													<Label className="text-xs">Employee Code *</Label>
+													<Input
+														placeholder="e.g., JIIT2300"
+														value={onboardData.employeeCode}
+														onChange={(e) => setOnboardData({ ...onboardData, employeeCode: e.target.value })}
+														required
+													/>
+												</div>
+												<div className="space-y-1">
+													<Label className="text-xs">Full Name *</Label>
+													<Input
+														placeholder="e.g., JOHN DOE"
+														value={onboardData.name}
+														onChange={(e) => setOnboardData({ ...onboardData, name: e.target.value })}
+														required
+													/>
+												</div>
+												<div className="space-y-1">
+													<Label className="text-xs">Email *</Label>
+													<Input
+														type="email"
+														placeholder="e.g., john.doe@jiit.ac.in"
+														value={onboardData.email}
+														onChange={(e) => setOnboardData({ ...onboardData, email: e.target.value })}
+														required
+													/>
+												</div>
+												<div className="space-y-1">
+													<Label className="text-xs">Department</Label>
+													<Input
+														placeholder="Department"
+														value={onboardData.department}
+														onChange={(e) => setOnboardData({ ...onboardData, department: e.target.value })}
+													/>
+												</div>
+												<div className="space-y-1">
+													<Label className="text-xs">Designation</Label>
+													<Input
+														placeholder="e.g., ASSISTANT PROFESSOR"
+														value={onboardData.designation}
+														onChange={(e) => setOnboardData({ ...onboardData, designation: e.target.value })}
+													/>
+												</div>
+												<div className="space-y-1">
+													<Label className="text-xs">Unit</Label>
+													<Input
+														placeholder="e.g., JIIT Noida Sec-62"
+														value={onboardData.unit}
+														onChange={(e) => setOnboardData({ ...onboardData, unit: e.target.value })}
+													/>
+												</div>
+												<div className="sm:col-span-2 flex justify-end gap-2 pt-2">
+													<Button
+														type="button"
+														variant="outline"
+														size="sm"
+														onClick={() => setShowOnboardForm(false)}
+													>
+														Cancel
+													</Button>
+													<Button type="submit" size="sm" disabled={isOnboarding} className="gap-2">
+														{isOnboarding ? (
+															<><Loader2 className="h-3 w-3 animate-spin" /> Adding...</>
+														) : (
+															<><UserPlus className="h-3 w-3" /> Add Faculty</>
+														)}
+													</Button>
+												</div>
+												<p className="sm:col-span-2 text-xs text-muted-foreground">
+													Default password: <code className="bg-muted px-1 rounded">Jiit@128</code> — Faculty must verify via OTP on first login.
+												</p>
+											</form>
+										</CardContent>
+									</Card>
+								)}
+
+								{/* Faculty List */}
+								<div className="flex-1 overflow-y-auto rounded-md border">
+									{isFetchingFaculty ? (
+										<div className="p-8 flex justify-center text-muted-foreground">
+											<Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading faculty list...
+										</div>
+									) : (
+										<table className="w-full text-sm text-left">
+											<thead className="bg-muted/50 font-medium text-muted-foreground sticky top-0">
+												<tr>
+													<th className="p-3">Code</th>
+													<th className="p-3">Name</th>
+													<th className="p-3 hidden md:table-cell">Email</th>
+													<th className="p-3 hidden lg:table-cell">Designation</th>
+													<th className="p-3 text-center">Verified</th>
+													<th className="p-3 text-right">Action</th>
+												</tr>
+											</thead>
+											<tbody>
+												{filteredManagedFaculty.length > 0 ? (
+													filteredManagedFaculty.map((f) => (
+														<tr key={f.id} className="border-t hover:bg-muted/50 transition-colors">
+															<td className="p-3 font-mono text-xs">{f.employeeCode}</td>
+															<td className="p-3 font-medium whitespace-nowrap">{f.name}</td>
+															<td className="p-3 text-muted-foreground hidden md:table-cell text-xs">{f.email}</td>
+															<td className="p-3 text-muted-foreground hidden lg:table-cell text-xs">{f.designation || "—"}</td>
+															<td className="p-3 text-center">
+																<Badge variant="outline" className={f.isVerified ? "bg-green-50 text-green-700 border-green-200" : "bg-amber-50 text-amber-700 border-amber-200"}>
+																	{f.isVerified ? "Yes" : "No"}
+																</Badge>
+															</td>
+															<td className="p-3 text-right">
+																{removingCode === f.employeeCode ? (
+																	<div className="flex items-center justify-end gap-2">
+																		<span className="text-xs text-red-600">Confirm?</span>
+																		<Button
+																			size="sm"
+																			variant="destructive"
+																			disabled={isRemoving}
+																			onClick={() => handleRemoveFaculty(f.employeeCode)}
+																			className="h-7 px-2 text-xs"
+																		>
+																			{isRemoving ? <Loader2 className="h-3 w-3 animate-spin" /> : "Yes, Remove"}
+																		</Button>
+																		<Button
+																			size="sm"
+																			variant="outline"
+																			onClick={() => setRemovingCode(null)}
+																			className="h-7 px-2 text-xs"
+																		>
+																			No
+																		</Button>
+																	</div>
+																) : (
+																	<Button
+																		size="sm"
+																		variant="outline"
+																		onClick={() => setRemovingCode(f.employeeCode)}
+																		className="h-7 gap-1 text-red-600 hover:text-red-700 hover:bg-red-50"
+																	>
+																		<UserMinus className="h-3 w-3" /> Remove
+																	</Button>
+																)}
+															</td>
+														</tr>
+													))
+												) : (
+													<tr>
+														<td colSpan={6} className="p-8 text-center text-muted-foreground">
+															{manageFacultySearch ? `No faculty matching "${manageFacultySearch}"` : "No faculty members found"}
+														</td>
+													</tr>
+												)}
+											</tbody>
+										</table>
+									)}
+								</div>
+							</CardContent>
+						</Card>
+					</div>
+				)}
 
 				{isLoading ? (
 					<div className="p-12 flex justify-center text-muted-foreground">

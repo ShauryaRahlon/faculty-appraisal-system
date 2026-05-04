@@ -3,8 +3,11 @@ import Credentials from "next-auth/providers/credentials";
 import dbConnect from "./lib/dbConnect";
 import User from "./models/User";
 import bcrypt from "bcryptjs";
+import { authConfig } from "./auth.config";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+    ...authConfig,
+    trustHost: true,
     providers: [
         Credentials({
             credentials: {
@@ -14,7 +17,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             authorize: async (credentials) => {
                 await dbConnect();
 
-                // Allow login via Email OR Employee Code
                 const user = await User.findOne({
                     $or: [
                         { email: credentials.identifier },
@@ -27,7 +29,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 const isMatch = await bcrypt.compare(credentials.password as string, user.password);
                 if (!isMatch) throw new Error("Invalid credentials");
 
-                // Check if user is verified (OTP verification is now handled separately)
                 if (!user.isVerified) {
                     throw new Error("Account not verified. Please complete OTP verification first.");
                 }
@@ -39,30 +40,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     department: user.department,
                     employeeCode: user.employeeCode,
                     role: user.role || "faculty",
-                    image: null
                 };
             },
         }),
     ],
-    pages: { signIn: "/login" },
-    callbacks: {
-        async jwt({ token, user }) {
-            if (user) {
-                token.id = user.id;
-                token.department = (user as any).department;
-                token.code = (user as any).employeeCode;
-                token.role = (user as any).role;
-            }
-            return token;
-        },
-        async session({ session, token }) {
-            if (token && session.user) {
-                (session.user as any).id = token.sub;
-                (session.user as any).department = token.department;
-                (session.user as any).employeeCode = token.code;
-                (session.user as any).role = token.role;
-            }
-            return session;
-        },
-    },
 });

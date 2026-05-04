@@ -13,6 +13,8 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
 	getTotalScore,
 	getCompletedSectionsCount,
@@ -20,7 +22,7 @@ import {
 } from "@/lib/localStorage";
 import { getAppraisalStatus, submitAppraisal } from "@/lib/api";
 import { APPRAISAL_SECTIONS } from "@/lib/constants";
-import { Award, BookOpen, Calendar, TrendingUp, Loader2, LogOut, Info, AlertTriangle, CheckCircle } from "lucide-react";
+import { Award, BookOpen, Calendar, TrendingUp, Loader2, LogOut, Info, AlertTriangle, CheckCircle, KeyRound, X } from "lucide-react";
 import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
@@ -33,6 +35,13 @@ export default function Dashboard() {
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const totalSections = APPRAISAL_SECTIONS.length;
 	const progressPercentage = (completedSections / totalSections) * 100;
+
+	// Change Password state
+	const [showChangePassword, setShowChangePassword] = useState(false);
+	const [currentPassword, setCurrentPassword] = useState("");
+	const [newPassword, setNewPassword] = useState("");
+	const [confirmNewPassword, setConfirmNewPassword] = useState("");
+	const [isChangingPassword, setIsChangingPassword] = useState(false);
 
 	useEffect(() => {
 		if (status === "unauthenticated") {
@@ -74,6 +83,40 @@ export default function Dashboard() {
 		router.push("/login");
 	};
 
+	const handleChangePassword = async (e: React.FormEvent) => {
+		e.preventDefault();
+		if (newPassword !== confirmNewPassword) {
+			toast.error("New passwords do not match");
+			return;
+		}
+		if (newPassword.length < 6) {
+			toast.error("Password must be at least 6 characters");
+			return;
+		}
+		setIsChangingPassword(true);
+		try {
+			const res = await fetch("/api/faculty/change-password", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ currentPassword, newPassword }),
+			});
+			const data = await res.json();
+			if (res.ok) {
+				toast.success("Password changed successfully!");
+				setShowChangePassword(false);
+				setCurrentPassword("");
+				setNewPassword("");
+				setConfirmNewPassword("");
+			} else {
+				toast.error(data.error || "Failed to change password");
+			}
+		} catch {
+			toast.error("Network error occurred");
+		} finally {
+			setIsChangingPassword(false);
+		}
+	};
+
 	const handleFinalSubmit = async () => {
 		if (progressPercentage < 100) return;
 		setIsSubmitting(true);
@@ -95,21 +138,118 @@ export default function Dashboard() {
 				<div className="flex justify-between items-start mb-8">
 					<div>
 						<h1 className="text-3xl font-bold text-foreground mb-2">
-							Welcome back, {session.user?.name?.split(" ")[1] || session.user?.name || "Faculty Member"}!
+							Welcome back, {session.user?.name || session.user?.name || "Faculty Member"}!
 						</h1>
 						<p className="text-muted-foreground">
 							Track and complete your annual performance appraisal
 						</p>
 					</div>
-					<Button 
-						variant="outline" 
-						onClick={handleLogout}
-						className="gap-2"
-					>
-						<LogOut className="h-4 w-4" />
-						Logout
-					</Button>
+					<div className="flex items-center gap-2">
+						<Button 
+							variant="outline" 
+							onClick={() => setShowChangePassword(true)}
+							className="gap-2"
+						>
+							<KeyRound className="h-4 w-4" />
+							Change Password
+						</Button>
+						<Button 
+							variant="outline" 
+							onClick={handleLogout}
+							className="gap-2"
+						>
+							<LogOut className="h-4 w-4" />
+							Logout
+						</Button>
+					</div>
 				</div>
+
+				{/* Change Password Modal */}
+				{showChangePassword && (
+					<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+						<Card className="w-full max-w-md shadow-2xl">
+							<CardHeader className="relative">
+								<Button
+									variant="ghost"
+									size="sm"
+									className="absolute right-4 top-4"
+									onClick={() => {
+										setShowChangePassword(false);
+										setCurrentPassword("");
+										setNewPassword("");
+										setConfirmNewPassword("");
+									}}
+								>
+									<X className="h-4 w-4" />
+								</Button>
+								<CardTitle className="flex items-center gap-2">
+									<KeyRound className="h-5 w-5 text-primary" />
+									Change Password
+								</CardTitle>
+								<CardDescription>
+									Enter your current password and choose a new one
+								</CardDescription>
+							</CardHeader>
+							<CardContent>
+								<form onSubmit={handleChangePassword} className="space-y-4">
+									<div className="space-y-2">
+										<Label htmlFor="current-password">Current Password</Label>
+										<Input
+											id="current-password"
+											type="password"
+											placeholder="Enter current password"
+											value={currentPassword}
+											onChange={(e) => setCurrentPassword(e.target.value)}
+											required
+										/>
+									</div>
+									<div className="space-y-2">
+										<Label htmlFor="new-password">New Password</Label>
+										<Input
+											id="new-password"
+											type="password"
+											placeholder="At least 6 characters"
+											value={newPassword}
+											onChange={(e) => setNewPassword(e.target.value)}
+											required
+										/>
+									</div>
+									<div className="space-y-2">
+										<Label htmlFor="confirm-new-password">Confirm New Password</Label>
+										<Input
+											id="confirm-new-password"
+											type="password"
+											placeholder="Re-enter new password"
+											value={confirmNewPassword}
+											onChange={(e) => setConfirmNewPassword(e.target.value)}
+											required
+										/>
+									</div>
+									<div className="flex gap-3 pt-2">
+										<Button
+											type="button"
+											variant="outline"
+											className="flex-1"
+											onClick={() => {
+												setShowChangePassword(false);
+												setCurrentPassword("");
+												setNewPassword("");
+												setConfirmNewPassword("");
+											}}
+										>
+											Cancel
+										</Button>
+										<Button type="submit" className="flex-1" disabled={isChangingPassword}>
+											{isChangingPassword ? (
+												<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Updating...</>
+											) : "Update Password"}
+										</Button>
+									</div>
+								</form>
+							</CardContent>
+						</Card>
+					</div>
+				)}
 
 				{/* Admin Review Status Alert */}
 				{adminStatus && (
