@@ -1,24 +1,21 @@
 import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
-import { getToken } from "next-auth/jwt";
+import { auth } from "@/auth"; // <-- Import the v5 auth wrapper
 
-// Routes that don't require authentication
 const publicRoutes = ["/login", "/verify-otp", "/change-password"];
-
-// Routes that require admin role
 const adminRoutes = ["/hod"];
 
-export async function middleware(req: NextRequest) {
+// Wrap your middleware with auth()
+export default auth((req) => {
     const { pathname } = req.nextUrl;
 
-    // Get the JWT token (does NOT require DB — works in Edge Runtime)
-    const token = await getToken({ req, secret: process.env.AUTH_SECRET });
+    // In v5, req.auth contains your session object
+    const session = req.auth;
 
     // Allow public routes
     if (publicRoutes.some((route) => pathname.startsWith(route))) {
         // If user is already logged in and visits /login, redirect to their dashboard
-        if (token && pathname.startsWith("/login")) {
-            const role = token.role as string;
+        if (session && pathname.startsWith("/login")) {
+            const role = (session.user as any)?.role;
             const redirectUrl = role === "admin" ? "/hod/dashboard" : "/dashboard";
             return NextResponse.redirect(new URL(redirectUrl, req.url));
         }
@@ -26,14 +23,14 @@ export async function middleware(req: NextRequest) {
     }
 
     // If not authenticated, redirect to login
-    if (!token) {
+    if (!session) {
         const loginUrl = new URL("/login", req.url);
         loginUrl.searchParams.set("callbackUrl", pathname);
         return NextResponse.redirect(loginUrl);
     }
 
     // Check admin routes — only admin role can access /hod/*
-    const role = token.role as string;
+    const role = (session.user as any)?.role;
     if (adminRoutes.some((route) => pathname.startsWith(route))) {
         if (role !== "admin") {
             // Non-admin trying to access HOD pages → bounce to faculty dashboard
@@ -42,7 +39,7 @@ export async function middleware(req: NextRequest) {
     }
 
     return NextResponse.next();
-}
+});
 
 // Run middleware on all routes EXCEPT static files, images, and API routes
 export const config = {
