@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import User from "@/models/User";
 import bcrypt from "bcryptjs";
 import dbConnect from "@/lib/dbConnect";
+import { auth } from "@/auth";
 
 export async function GET(request: Request) {
   await dbConnect();
@@ -10,6 +11,13 @@ export async function GET(request: Request) {
   const force = searchParams.get("force") === "true";
 
   if (force) {
+    const session = await auth();
+    if (!session || session.user?.role !== "admin") {
+      return NextResponse.json(
+        { message: "Unauthorized. Admin login required to force seed." },
+        { status: 401 }
+      );
+    }
     await User.deleteMany({});
     console.log("Force mode: deleted all existing users before re-seeding.");
   }
